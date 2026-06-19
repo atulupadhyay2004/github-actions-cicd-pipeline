@@ -1,0 +1,97 @@
+name: Full CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  APP_NAME: NodeApp
+  NODE_VERSION: 20
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+
+    outputs:
+      version: ${{ steps.version.outputs.ver }}
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache Dependencies
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Generate Version
+        id: version
+        run: echo "ver=1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
+
+      - name: Build Completed
+        run: echo "Build Successful"
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - run: npm test
+
+  health-check:
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Start Application
+        run: |
+          node app.js &
+          sleep 5
+
+      - name: Health Check
+        run: |
+          curl http://localhost:3000
+
+  deploy:
+    needs:
+      - build
+      - health-check
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Deployment Information
+        run: |
+          echo "Deploying Application"
+          echo "Version: ${{ needs.build.outputs.version }}"
+
+      - name: Simulated Deployment
+        run: |
+          echo "Deployment Successful"
